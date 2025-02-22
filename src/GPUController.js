@@ -14,7 +14,39 @@
 
 window.OptiComputation.GPUController = class{
     constructor(){
+        this.threadsCriadas = [];
+        this.mapaThreads = {};
+    }
 
+    /**
+    * Retorna todos os threads criados 
+    */
+    getThreads = function(){
+        return this.threadsCriadas;
+    }
+
+    /**
+    * Retorna a referencia de uma Thread pelo timestamp dela 
+    */
+    getThreadById = function( timestamp ){
+        return this.mapaThreads[ timestamp ];
+    }
+
+    /**
+    * Imprime todas as threads no console 
+    */
+    printThreads = function(){
+        const keysThreads = Object.keys( this.mapaThreads );
+        const tabelaThreads = [];
+
+        for( let i = 0 ; i < keysThreads.length ; i++ )
+        {
+            const timestampThread = keysThreads[i];
+
+            tabelaThreads.push( [timestampThread] );
+        }
+
+        console.table(tabelaThreads);
     }
 
     /**
@@ -28,10 +60,9 @@ window.OptiComputation.GPUController = class{
     * Exemplos aleatorios que testei:
     * 
     * @example
-    * gpu = new OptiComputation.GPUController() ; gpu.criarWorker(function gononono(parametrosJSON) { function clc(vl){ return vl + 5 * 5 } ; const x = clc(parametrosJSON*5) ; return x }, 50)
-    * 
-    * 
-    * 
+    * gpu = new OptiComputation.GPUController(); 
+    * gpu.criarWorker(function gononono(parametrosJSON) { function clc(vl){ return vl + 5 * 5 } ; const x = clc(parametrosJSON*5) ; return x }, 50);
+    *
     */
     criarWorker = function( funcao, parametros, callback=(resultado)=>{ console.log(resultado) } ){
         // Código do Web Worker como uma string
@@ -43,6 +74,9 @@ window.OptiComputation.GPUController = class{
             };
         `;
         */
+        const tempoComecou = new Date().getTime();
+        const usoMemoriaComecou = OptiComputation.hardware.RAM.getUsage();
+
         const funcaoString = String(funcao).trim();
         const isFuncaoComNome = funcaoString.indexOf('function ') != -1 && funcaoString[funcaoString.indexOf('function ')+1] != '(';
         
@@ -237,8 +271,44 @@ window.OptiComputation.GPUController = class{
         // Criando o Web Worker a partir da URL do Blob
         const worker = new Worker(workerURL);
 
+        // Coloca o Worker dentro do Array de processos criados
+        const indiceThread = this.threadsCriadas.push({
+            timestampCriado: new Date().getTime(),
+            worker: worker,
+            funcao: funcao,
+            funcaoString: funcaoString,
+            parametros: parametros,
+            callback: callback,
+
+            //Parametros internos
+            _internal: {
+                funcaoStringAjustada: funcaoThread
+            }
+
+        });
+
+        // Pega a referencia da thread
+        const referenciaThread = this.threadsCriadas[ indiceThread-1 ];
+        referenciaThread.terminou = false;
+        referenciaThread._internal.tempoComecou = tempoComecou;
+
+        // Coloca ela em um JSON para poder facilitar o acesso
+        this.mapaThreads[ referenciaThread.timestampCriado ] = referenciaThread;
+
         // Recebendo a resposta do Worker
         worker.onmessage = function(resultado) {
+
+            //Informações da CPU quanto essa thread terminou
+            const tempoTerminou = new Date().getTime();
+            const usoMemoriaTerminou = OptiComputation.hardware.RAM.getUsage();
+            const gastoMemoria       = Math.abs(usoMemoriaComecou - usoMemoriaTerminou); //Gasto de memoria em bytes
+
+            referenciaThread.usoRAM = gastoMemoria;
+            referenciaThread._internal.usoMemoriaComecou = usoMemoriaComecou;
+            referenciaThread._internal.usoMemoriaTerminou = usoMemoriaTerminou;
+            referenciaThread.terminou = true;
+            referenciaThread._internal.tempoFinalizada = tempoTerminou;
+            referenciaThread.duracaoTempo = Math.abs( tempoComecou - tempoTerminou );
             callback( resultado.data );
             
             // Agora podemos encerrar o worker

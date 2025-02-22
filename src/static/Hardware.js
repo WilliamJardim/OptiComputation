@@ -18,6 +18,12 @@ window.OptiComputation.hardware = {
         getNucleos: function(){
             return navigator.hardwareConcurrency;
         }
+    },
+
+    RAM: {
+        getUsage: function(){
+            return performance.memory.usedJSHeapSize;
+        }
     }
 
 }
