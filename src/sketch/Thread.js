@@ -23,7 +23,11 @@ window.OptiComputation.sketch.Thread = class {
         this.funcao          = configThread.funcao;
         this.funcaoString    = configThread.funcaoString;
         this.parametros      = configThread.parametros;
-        this.callback        = configThread.callback();
+        
+        this.callbacks = {
+            onComecou  : configThread.callbacks.onComecou  || function(){},
+            onTerminou : configThread.callbacks.onTerminou || function(resultado){}
+        },
 
         this._internal       = {
             funcaoStringAjustada: configThread._internal.funcaoThread,

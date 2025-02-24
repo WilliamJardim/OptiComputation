@@ -14,7 +14,17 @@ function calcularX(parametrosJSON) {
 }
 
 // Cria uma Thread nessa instancia de GPU
-gpu.criarThread(calcularX, 50);
+gpu.criarThread(calcularX, 50, {
 
+    // Quando a Thread começar
+    onComecou: function(){
+        console.log('Thread iniciada!');
+    },
 
+    // Quando a Thread terminar
+    onTerminou: function( resultado ){
+        console.log(resultado);
+        console.log('Thread finalizada!');
+    }
 
+});

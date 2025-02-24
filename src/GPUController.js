@@ -64,7 +64,7 @@ window.OptiComputation.GPUController = class{
     * gpu.criarWorker(function gononono(parametrosJSON) { function clc(vl){ return vl + 5 * 5 } ; const x = clc(parametrosJSON*5) ; return x }, 50);
     *
     */
-    criarThread = function( funcao, parametros, callback=(resultado)=>{ console.log(resultado) } ){
+    criarThread = function( funcao, parametros, callbacks={} ){
         
         const funcaoString = String(funcao).trim();
         const isFuncaoComNome = funcaoString.indexOf('function ') != -1 && funcaoString[funcaoString.indexOf('function ')+1] != '(';
@@ -269,7 +269,11 @@ window.OptiComputation.GPUController = class{
                 funcao: funcao,
                 funcaoString: funcaoString,
                 parametros: parametros,
-                callback: callback,
+                
+                callbacks: {
+                    onComecou  : callbacks.onComecou,
+                    onTerminou : callbacks.onTerminou
+                },
 
                 //Parametros internos
                 _internal: {
@@ -296,12 +300,14 @@ window.OptiComputation.GPUController = class{
             referenciaThread.registrarFim();
 
             // Chama o callback de quando essa Thread termina
-            callback( resultado.data );
+            referenciaThread.callbacks['onTerminou'].bind(referenciaThread)( resultado.data );
             
             // Encerra o worker
             worker.terminate();
             URL.revokeObjectURL(workerURL);
         };
+
+        referenciaThread.callbacks['onComecou'].bind(referenciaThread)();
 
         // Enviando uma mensagem para o Worker
         worker.postMessage(parametros); 
