@@ -64,7 +64,7 @@ window.OptiComputation.GPUController = class{
     * gpu.criarWorker(function gononono(parametrosJSON) { function clc(vl){ return vl + 5 * 5 } ; const x = clc(parametrosJSON*5) ; return x }, 50);
     *
     */
-    criarWorker = function( funcao, parametros, callback=(resultado)=>{ console.log(resultado) } ){
+    criarThread = function( funcao, parametros, callback=(resultado)=>{ console.log(resultado) } ){
         // Código do Web Worker como uma string
         /*
         const workerCode = `
@@ -318,6 +318,9 @@ window.OptiComputation.GPUController = class{
 
         // Enviando uma mensagem para o Worker
         worker.postMessage(parametros); 
+
+        // Retorna a referencia da Thread
+        return referenciaThread;
     }
     
     //Cria um GPU com WebGL
