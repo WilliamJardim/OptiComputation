@@ -300,14 +300,14 @@ window.OptiComputation.GPUController = class{
             referenciaThread.registrarFim();
 
             // Chama o callback de quando essa Thread termina
-            referenciaThread.callbacks['onTerminou'].bind(referenciaThread)( resultado.data );
+            referenciaThread.callbacks['onTerminou'].bind(referenciaThread)( resultado.data, referenciaThread );
             
             // Encerra o worker
             worker.terminate();
             URL.revokeObjectURL(workerURL);
         };
 
-        referenciaThread.callbacks['onComecou'].bind(referenciaThread)();
+        referenciaThread.callbacks['onComecou'].bind(referenciaThread)( referenciaThread );
 
         // Enviando uma mensagem para o Worker
         worker.postMessage(parametros); 

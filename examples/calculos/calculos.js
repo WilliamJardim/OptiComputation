@@ -30,12 +30,12 @@ function calcularX(parametrosJSON) {
 gpu.criarThread(calcularX, 50, {
 
     // Quando a Thread começar
-    onComecou: function(){
+    onComecou: function( instanciaThread ){
         console.log('Thread iniciada!');
     },
 
     // Quando a Thread terminar
-    onTerminou: function( resultado ){
+    onTerminou: function( resultado, instanciaThread ){
         console.log(resultado);
         console.log('Thread finalizada!');
     }
