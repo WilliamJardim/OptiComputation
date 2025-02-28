@@ -316,11 +316,135 @@ window.OptiComputation.GPUController = class{
         return referenciaThread;
     }
     
-    //Cria um GPU com WebGL
-    criarWebGL = function(){
+    /**
+    * Cria uma thread na GPU com WebGL
+    * Ele executa um código GLSL diretamente na GPU
+    * 
+    * @param {*} fragmentShader - um código GLSL
+    * @param {*} vertexShader - um código GLSL
+    * @param {*} parametros - um JSON que tem os parametros que vão ser usados(variaveis)
+    */
+    criarThreadGLSL = function( scriptFragment=null, scriptVertex=null, parametros={} ){
+        if(!scriptFragment){
+            throw Error('Voce precisa definir o scriptFragment para fazer os calculos!');
+        }      
+
+        // Código do fragment shader GLSL
+        const fragmentShaderSource = scriptFragment;
+        
+        const vertexShaderSource = scriptVertex;
+
         const canvas = document.createElement('canvas');
         document.body.appendChild(canvas);
-        const gl = canvas.getContext('webgl');
+
+        const gl = canvas.getContext('webgl2');
         console.log(gl ? "WebGL ativado!" : "WebGL não suportado.");
+
+        console.log(gl.checkFramebufferStatus(gl.FRAMEBUFFER));
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                throw new Error("Erro ao compilar shader: " + gl.getShaderInfoLog(shader));
+            }
+            return shader;
+        }
+        
+        // Criando shaders
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+
+        function createProgram(gl, vertexShader, fragmentShader) {
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                throw new Error("Erro ao linkar programa: " + gl.getProgramInfoLog(program));
+            }
+            return program;
+        }
+
+        //Define os parametros usados no código de forma dinamica
+        function setUniforms(gl, program, dadosParametros) {
+            for (const name in dadosParametros) {
+                const location = gl.getUniformLocation(program, name);
+                const value = dadosParametros[name];
+        
+                if (location === null) {
+                    console.warn(`Uniforme ${name} não encontrado!`);
+                }
+        
+                if (typeof value === "number") {
+                    gl.uniform1f(location, value);
+                } else if (Array.isArray(value)) {
+                    if (value.length === 2) gl.uniform2fv(location, value);
+                    else if (value.length === 3) gl.uniform3fv(location, value);
+                    else if (value.length === 4) gl.uniform4fv(location, value);
+                    else if (value.length === 9) gl.uniformMatrix3fv(location, false, value);
+                    else if (value.length === 16) gl.uniformMatrix4fv(location, false, value);
+                }
+            }
+        }
+          
+        
+        // Criando o programa WebGL
+        const program = createProgram(gl, vertexShader, fragmentShader);
+        gl.useProgram(program);
+
+        // Criação de um buffer para um quadrado da tela
+        const vertices = new Float32Array([
+            -1.0, -1.0,  // Inferior esquerdo
+            1.0, -1.0,  // Inferior direito
+            -1.0,  1.0,  // Superior esquerdo
+            1.0,  1.0   // Superior direito
+        ]);
+
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+        // Obtém a localização do atributo "position"
+        const positionLocation = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        // Envia os parâmetros para a função
+        setUniforms(gl, program, parametros);
+
+        const framebuffer = gl.createFramebuffer();
+        const texture = gl.createTexture();
+
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+
+        // Definindo os parâmetros da textura
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+         // Desenhando o quadrado na tela
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+        // Lendo a saída da textura
+        const output = new Uint8Array(4);
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, output);
+
+        console.log("Resultado GLSL:", output);
+
+        return {
+            gl:  gl,
+            program: program,
+            framebuffer: framebuffer,
+            texture: texture,
+            canvas: canvas,
+            output: output
+        };
     }
 }
