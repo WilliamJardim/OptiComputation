@@ -32,6 +32,7 @@ void main() {
 `;
 
 const vetex = `
+// Código GLSL do vértice shader
 attribute vec2 position;
 void main() {
     gl_Position = vec4(position, 0.0, 1.0);
@@ -41,8 +42,34 @@ void main() {
 const parametros = {
     escala: 0.1, // Tente com valores menores para evitar saturação
     deslocamento: [-1.0, 2.0],
-    cor: [1.5, 0.8, 0.3, 1.0]
+    cor: [1.5, 1.08, 0.3, 1.0]
 };
 
 // Cria uma Thread nessa instancia de GPU
 gli = gpu.criarThreadGLSL( codigo, vetex, parametros );
+
+
+/**
+* outro exemplo
+*/
+const fragmentShader2 = `
+    precision highp float;
+    uniform vec4 cor;
+    void main() {
+        gl_FragColor = cor;
+    }
+`;
+
+const vertexShader2 = `
+    attribute vec2 position;
+    void main() {
+        gl_Position = vec4(position, 0.0, 1.0);
+    }
+`;
+
+const parametros2 = {
+    cor: [0.1, 0.5, -0.1, 0.1] // Cor vermelha
+};
+
+const resultado2 = gpu.criarThreadGLSL(fragmentShader2, vertexShader2, parametros2);
+console.log(resultado2.output); // Saída será o valor da cor gerado pelo shader

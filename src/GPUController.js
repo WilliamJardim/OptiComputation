@@ -377,14 +377,22 @@ window.OptiComputation.GPUController = class{
                     console.warn(`Uniforme ${name} não encontrado!`);
                 }
         
+                if (value.length === 4) {
+                    // Se for uma matriz 2x2, passe os 4 valores
+                    gl.uniformMatrix2fv(location, false, new Float32Array(value));
+                }
+
                 if (typeof value === "number") {
                     gl.uniform1f(location, value);
                 } else if (Array.isArray(value)) {
-                    if (value.length === 2) gl.uniform2fv(location, value);
-                    else if (value.length === 3) gl.uniform3fv(location, value);
-                    else if (value.length === 4) gl.uniform4fv(location, value);
-                    else if (value.length === 9) gl.uniformMatrix3fv(location, false, value);
-                    else if (value.length === 16) gl.uniformMatrix4fv(location, false, value);
+                    if (value.length === 2) gl.uniform2fv(location, new Float32Array(value));
+                    else if (value.length === 3) gl.uniform3fv(location, new Float32Array(value));
+                    else if (value.length === 4) gl.uniform4fv(location, new Float32Array(value));
+                    else if (value.length === 9) gl.uniformMatrix3fv(location, false, new Float32Array(value));
+                    else if (value.length === 16) gl.uniformMatrix4fv(location, false, new Float32Array(value));
+                    else {
+                        console.warn(`Tipo de uniform desconhecido para ${name}`);
+                    }
                 }
             }
         }
@@ -428,13 +436,18 @@ window.OptiComputation.GPUController = class{
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-         // Desenhando o quadrado na tela
+        // Limpa o framebuffer e desenha
         gl.clear(gl.COLOR_BUFFER_BIT);
+
+        // Executa o shader (não estamos desenhando, mas o shader será executado)
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-        // Lendo a saída da textura
-        const output = new Uint8Array(4);
-        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, output);
+        // Lendo a saída da textura com flexibilidade para qualquer tamanho de output
+        const outputWidth = 1; // Defina com base no que seu shader espera
+        const outputHeight = 1; // Defina com base no que seu shader espera
+        const output = new Uint8Array(outputWidth * outputHeight * 4); // RGBA para cada pixel
+
+        gl.readPixels(0, 0, outputWidth, outputHeight, gl.RGBA, gl.UNSIGNED_BYTE, output);     
 
         console.log("Resultado GLSL:", output);
 
