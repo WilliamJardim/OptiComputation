@@ -338,8 +338,12 @@ window.OptiComputation.GPUController = class{
         const canvas = document.createElement('canvas');
         document.body.appendChild(canvas);
 
-        const gl = canvas.getContext('webgl2');
+        const versaoWebGL = parametros_execucao.version || 'webgl2';
+
+        const gl = canvas.getContext(versaoWebGL);
         console.log(gl ? "WebGL ativado!" : "WebGL não suportado.");
+
+        console.log(`Usando ${versaoWebGL}`);
 
         console.log(gl.checkFramebufferStatus(gl.FRAMEBUFFER));
 
@@ -398,7 +402,26 @@ window.OptiComputation.GPUController = class{
                         } else if (lengthValue === 16) {
                             // Matriz 4x4
                             gl.uniformMatrix4fv(location, false, new Float32Array(value));
-                        } else {
+
+                        //Novos tipos de matrizes que apenas o webgl2 suporta
+                        } else if (versaoWebGL === "webgl2") {
+                            // Apenas WebGL 2.0 suporta essas matrizes
+                            if (lengthValue === 6) {
+                                gl.uniformMatrix2x3fv(location, false, new Float32Array(value));
+                            } else if (lengthValue === 8) {
+                                gl.uniformMatrix2x4fv(location, false, new Float32Array(value));
+                            } else if (lengthValue === 6) {
+                                gl.uniformMatrix3x2fv(location, false, new Float32Array(value));
+                            } else if (lengthValue === 12) {
+                                gl.uniformMatrix3x4fv(location, false, new Float32Array(value));
+                            } else if (lengthValue === 8) {
+                                gl.uniformMatrix4x2fv(location, false, new Float32Array(value));
+                            } else if (lengthValue === 12) {
+                                gl.uniformMatrix4x3fv(location, false, new Float32Array(value));
+                            } else {
+                                console.warn(`Formato de matriz não suportado para ${name}: tamanho ${lengthValue}`);
+                            }
+                        }else {
                             console.warn(`Formato de matriz não suportado para ${name}: tamanho ${length}`);
                         }
                     }
