@@ -380,14 +380,39 @@ window.OptiComputation.GPUController = class{
         
                 if( parametros_execucao.matricial == true )
                 {
-                    if (value.length === 4) {
-                        // Se for uma matriz 2x2, passe os 4 valores
-                        gl.uniformMatrix2fv(location, false, new Float32Array(value));
+                    //Se o "value" for um array ou uma matrix
+                    if ( Array.isArray(value) || value instanceof Float32Array ) 
+                    {
+                        const lengthValue = value.length;
+
+                        if (lengthValue === 4) {
+                            // Se for uma matriz 2x2, passe os 4 valores
+                            gl.uniformMatrix2fv(location, false, new Float32Array(value));
+                        } else if (lengthValue === 9) {
+                            // Matriz 3x3
+                            gl.uniformMatrix3fv(location, false, new Float32Array(value));
+                        } else if (lengthValue === 16) {
+                            // Matriz 4x4
+                            gl.uniformMatrix4fv(location, false, new Float32Array(value));
+                        } else {
+                            console.warn(`Formato de matriz não suportado para ${name}: tamanho ${length}`);
+                        }
                     }
                 }   
 
+                //Se "value" for um número
                 if (typeof value === "number") {
                     gl.uniform1f(location, value);
+
+                //Se "value" for um array 32bits
+                } else if (value instanceof Int32Array) {
+                    gl.uniform1iv(location, value);
+                    
+                //Se "value" for um array 32bits
+                } else if (value instanceof Uint32Array) {
+                    gl.uniform1uiv(location, value);
+
+                // Caso constrário
                 } else if (Array.isArray(value)) {
                     if (value.length === 2) gl.uniform2fv(location, new Float32Array(value));
                     else if (value.length === 3) gl.uniform3fv(location, new Float32Array(value));
