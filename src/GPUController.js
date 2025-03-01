@@ -323,8 +323,9 @@ window.OptiComputation.GPUController = class{
     * @param {*} fragmentShader - um código GLSL
     * @param {*} vertexShader - um código GLSL
     * @param {*} parametros - um JSON que tem os parametros que vão ser usados(variaveis)
+    * @param {*} parametros_execucao - Configurações de execucação do GLSL
     */
-    criarThreadGLSL = function( scriptFragment=null, scriptVertex=null, parametros={} ){
+    criarThreadGLSL = function( scriptFragment=null, scriptVertex=null, parametros={}, parametros_execucao={} ){
         if(!scriptFragment){
             throw Error('Voce precisa definir o scriptFragment para fazer os calculos!');
         }      
@@ -377,10 +378,13 @@ window.OptiComputation.GPUController = class{
                     console.warn(`Uniforme ${name} não encontrado!`);
                 }
         
-                if (value.length === 4) {
-                    // Se for uma matriz 2x2, passe os 4 valores
-                    gl.uniformMatrix2fv(location, false, new Float32Array(value));
-                }
+                if( parametros_execucao.matricial == true )
+                {
+                    if (value.length === 4) {
+                        // Se for uma matriz 2x2, passe os 4 valores
+                        gl.uniformMatrix2fv(location, false, new Float32Array(value));
+                    }
+                }   
 
                 if (typeof value === "number") {
                     gl.uniform1f(location, value);

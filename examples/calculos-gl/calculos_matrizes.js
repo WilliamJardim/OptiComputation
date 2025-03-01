@@ -45,4 +45,4 @@ const parametros_matricial = {
     matrizB: [0.5, 0.6, 0.7, 8.0],  // Outra matriz 2x2
 };
 
-gli_matricial = gpu.criarThreadGLSL( codigo_matricial, vetex_matricial, parametros_matricial );
+gli_matricial = gpu.criarThreadGLSL( codigo_matricial, vetex_matricial, parametros_matricial, { matricial: true } );

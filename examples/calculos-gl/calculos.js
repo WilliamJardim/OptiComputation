@@ -46,7 +46,7 @@ const parametros = {
 };
 
 // Cria uma Thread nessa instancia de GPU
-gli = gpu.criarThreadGLSL( codigo, vetex, parametros );
+gli = gpu.criarThreadGLSL( codigo, vetex, parametros, { matricial: false } );
 
 
 /**
@@ -71,5 +71,5 @@ const parametros2 = {
     cor: [0.1, 0.5, -0.1, 0.1] // Cor vermelha
 };
 
-const resultado2 = gpu.criarThreadGLSL(fragmentShader2, vertexShader2, parametros2);
+const resultado2 = gpu.criarThreadGLSL(fragmentShader2, vertexShader2, parametros2, { matricial: false });
 console.log(resultado2.output); // Saída será o valor da cor gerado pelo shader
