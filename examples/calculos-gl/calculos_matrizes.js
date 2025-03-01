@@ -41,8 +41,8 @@ void main() {
 
 
 const parametros_matricial = {
-    matrizA: [0.1, 0.2, 0.3, 4.0],  // Matriz 2x2
-    matrizB: [0.5, 0.6, 0.7, 8.0],  // Outra matriz 2x2
+    matrizA: new Float32Array([0.1, 0.2, 0.3, 4.0]),  // Matriz 2x2
+    matrizB: new Float32Array([0.5, 0.6, 0.7, 8.0]),  // Outra matriz 2x2
 };
 
 gli_matricial = gpu.criarThreadGLSL( codigo_matricial, vetex_matricial, parametros_matricial, { matricial: true } );

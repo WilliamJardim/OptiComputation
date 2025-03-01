@@ -385,6 +385,10 @@ window.OptiComputation.GPUController = class{
                     {
                         const lengthValue = value.length;
 
+                        if( !(value instanceof Float32Array) ){
+                            throw Error('O "value" precisa ser um Float32Array!. Revise os parametros');
+                        }
+
                         if (lengthValue === 4) {
                             // Se for uma matriz 2x2, passe os 4 valores
                             gl.uniformMatrix2fv(location, false, new Float32Array(value));
