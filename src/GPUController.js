@@ -325,195 +325,243 @@ window.OptiComputation.GPUController = class{
     * @param {*} parametros - um JSON que tem os parametros que vão ser usados(variaveis)
     * @param {*} parametros_execucao - Configurações de execucação do GLSL
     */
-    criarThreadGLSL = function( scriptFragment=null, scriptVertex=null, parametros={}, parametros_execucao={} ){
-        if(!scriptFragment){
-            throw Error('Voce precisa definir o scriptFragment para fazer os calculos!');
-        }      
-
-        // Código do fragment shader GLSL
-        const fragmentShaderSource = scriptFragment;
-        
-        const vertexShaderSource = scriptVertex;
-
-        const canvas = document.createElement('canvas');
-        document.body.appendChild(canvas);
-
-        const versaoWebGL = parametros_execucao.version || 'webgl2';
-
-        const gl = canvas.getContext(versaoWebGL);
-        console.log(gl ? "WebGL ativado!" : "WebGL não suportado.");
-
-        console.log(`Usando ${versaoWebGL}`);
-
-        console.log(gl.checkFramebufferStatus(gl.FRAMEBUFFER));
-
-        function createShader(gl, type, source) {
-            const shader = gl.createShader(type);
-            gl.shaderSource(shader, source);
-            gl.compileShader(shader);
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                throw new Error("Erro ao compilar shader: " + gl.getShaderInfoLog(shader));
-            }
-            return shader;
-        }
-        
-        // Criando shaders
-        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-
-        function createProgram(gl, vertexShader, fragmentShader) {
-            const program = gl.createProgram();
-            gl.attachShader(program, vertexShader);
-            gl.attachShader(program, fragmentShader);
-            gl.linkProgram(program);
-            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-                throw new Error("Erro ao linkar programa: " + gl.getProgramInfoLog(program));
-            }
-            return program;
-        }
-
-        //Define os parametros usados no código de forma dinamica
-        function setUniforms(gl, program, dadosParametros) {
-            for (const name in dadosParametros) {
-                const location = gl.getUniformLocation(program, name);
-                const value = dadosParametros[name];
-        
-                if (location === null) {
-                    console.warn(`Uniforme ${name} não encontrado!`);
-                }
-        
-                if( parametros_execucao.matricial == true )
-                {
-                    //Se o "value" for um array ou uma matrix
-                    if ( Array.isArray(value) || value instanceof Float32Array ) 
-                    {
-                        const lengthValue = value.length;
-
-                        if( !(value instanceof Float32Array) ){
-                            throw Error('O "value" precisa ser um Float32Array!. Revise os parametros');
-                        }
-
-                        if (lengthValue === 4) {
-                            // Se for uma matriz 2x2, passe os 4 valores
-                            gl.uniformMatrix2fv(location, false, new Float32Array(value));
-                        } else if (lengthValue === 9) {
-                            // Matriz 3x3
-                            gl.uniformMatrix3fv(location, false, new Float32Array(value));
-                        } else if (lengthValue === 16) {
-                            // Matriz 4x4
-                            gl.uniformMatrix4fv(location, false, new Float32Array(value));
-
-                        //Novos tipos de matrizes que apenas o webgl2 suporta
-                        } else if (versaoWebGL === "webgl2") {
-                            // Apenas WebGL 2.0 suporta essas matrizes
-                            if (lengthValue === 6) {
-                                gl.uniformMatrix2x3fv(location, false, new Float32Array(value));
-                            } else if (lengthValue === 8) {
-                                gl.uniformMatrix2x4fv(location, false, new Float32Array(value));
-                            } else if (lengthValue === 6) {
-                                gl.uniformMatrix3x2fv(location, false, new Float32Array(value));
-                            } else if (lengthValue === 12) {
-                                gl.uniformMatrix3x4fv(location, false, new Float32Array(value));
-                            } else if (lengthValue === 8) {
-                                gl.uniformMatrix4x2fv(location, false, new Float32Array(value));
-                            } else if (lengthValue === 12) {
-                                gl.uniformMatrix4x3fv(location, false, new Float32Array(value));
-                            } else {
-                                console.warn(`Formato de matriz não suportado para ${name}: tamanho ${lengthValue}`);
-                            }
-                        }else {
-                            console.warn(`Formato de matriz não suportado para ${name}: tamanho ${length}`);
-                        }
-                    }
-                }   
-
-                //Se "value" for um número
-                if (typeof value === "number") {
-                    gl.uniform1f(location, value);
-
-                //Se "value" for um array 32bits
-                } else if (value instanceof Int32Array) {
-                    gl.uniform1iv(location, value);
+    criarThreadGLSL = function( scriptFragment=null, scriptVertex=null, parametros={}, parametros_execucao={}, callbacks={} ){
+        return new Promise(async(resolve, reject)=>{
+            if(!scriptFragment){
+                reject( Error('Voce precisa definir o scriptFragment para fazer os calculos!') );
+                throw Error('Voce precisa definir o scriptFragment para fazer os calculos!');
+            }      
+    
+            // Cria uma Thread dentro do Array de processos criados
+            const indiceThread = this.threadsCriadas.push( 
+    
+                new OptiComputation.sketch.GLThread({
+                    timestampCriado: new Date().getTime(),
                     
-                //Se "value" for um array 32bits
-                } else if (value instanceof Uint32Array) {
-                    gl.uniform1uiv(location, value);
-
-                // Caso constrário
-                } else if (Array.isArray(value)) {
-                    if (value.length === 2) gl.uniform2fv(location, new Float32Array(value));
-                    else if (value.length === 3) gl.uniform3fv(location, new Float32Array(value));
-                    else if (value.length === 4) gl.uniform4fv(location, new Float32Array(value));
-                    else if (value.length === 9) gl.uniformMatrix3fv(location, false, new Float32Array(value));
-                    else if (value.length === 16) gl.uniformMatrix4fv(location, false, new Float32Array(value));
-                    else {
-                        console.warn(`Tipo de uniform desconhecido para ${name}`);
+                    funcao: {
+                        scriptFragment: scriptFragment,
+                        scriptVertex: scriptVertex
+                    },
+    
+                    parametros: parametros,
+                    
+                    callbacks: {
+                        onComecou  : callbacks.onComecou,
+                        onTerminou : callbacks.onTerminou
+                    },
+    
+                    //Parametros internos
+                    _internal: {}
+    
+                }) 
+    
+            );
+    
+            // Pega a referencia da thread
+            const referenciaThread = this.threadsCriadas[ indiceThread-1 ];
+    
+            // Registra quando essa Thread começou
+            referenciaThread.registrarInicio();
+    
+            // Coloca ela em um JSON para poder facilitar o acesso
+            this.mapaThreads[ referenciaThread.timestampCriado ] = referenciaThread;
+    
+    
+            // Código do fragment shader GLSL
+            const fragmentShaderSource = scriptFragment;
+            
+            const vertexShaderSource = scriptVertex;
+    
+            const canvas = document.createElement('canvas');
+            document.body.appendChild(canvas);
+    
+            const versaoWebGL = parametros_execucao.version || 'webgl2';
+    
+            const gl = canvas.getContext(versaoWebGL);
+            console.log(gl ? "WebGL ativado!" : "WebGL não suportado.");
+    
+            console.log(`Usando ${versaoWebGL}`);
+    
+            console.log(gl.checkFramebufferStatus(gl.FRAMEBUFFER));
+    
+            function createShader(gl, type, source) {
+                const shader = gl.createShader(type);
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    reject( new Error("Erro ao compilar shader: " + gl.getShaderInfoLog(shader)) );
+                    throw new Error("Erro ao compilar shader: " + gl.getShaderInfoLog(shader));
+                }
+                return shader;
+            }
+            
+            // Criando shaders
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    
+            function createProgram(gl, vertexShader, fragmentShader) {
+                const program = gl.createProgram();
+                gl.attachShader(program, vertexShader);
+                gl.attachShader(program, fragmentShader);
+                gl.linkProgram(program);
+                if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                    reject( new Error("Erro ao linkar programa: " + gl.getProgramInfoLog(program)) )
+                    throw new Error("Erro ao linkar programa: " + gl.getProgramInfoLog(program));
+                }
+                return program;
+            }
+    
+            //Define os parametros usados no código de forma dinamica
+            function setUniforms(gl, program, dadosParametros) {
+                for (const name in dadosParametros) {
+                    const location = gl.getUniformLocation(program, name);
+                    const value = dadosParametros[name];
+            
+                    if (location === null) {
+                        console.warn(`Uniforme ${name} não encontrado!`);
+                    }
+            
+                    if( parametros_execucao.matricial == true )
+                    {
+                        //Se o "value" for um array ou uma matrix
+                        if ( Array.isArray(value) || value instanceof Float32Array ) 
+                        {
+                            const lengthValue = value.length;
+    
+                            if( !(value instanceof Float32Array) ){
+                                reject( Error('O "value" precisa ser um Float32Array!. Revise os parametros') );
+                                throw Error('O "value" precisa ser um Float32Array!. Revise os parametros');
+                            }
+    
+                            if (lengthValue === 4) {
+                                // Se for uma matriz 2x2, passe os 4 valores
+                                gl.uniformMatrix2fv(location, false, new Float32Array(value));
+                            } else if (lengthValue === 9) {
+                                // Matriz 3x3
+                                gl.uniformMatrix3fv(location, false, new Float32Array(value));
+                            } else if (lengthValue === 16) {
+                                // Matriz 4x4
+                                gl.uniformMatrix4fv(location, false, new Float32Array(value));
+    
+                            //Novos tipos de matrizes que apenas o webgl2 suporta
+                            } else if (versaoWebGL === "webgl2") {
+                                // Apenas WebGL 2.0 suporta essas matrizes
+                                if (lengthValue === 6) {
+                                    gl.uniformMatrix2x3fv(location, false, new Float32Array(value));
+                                } else if (lengthValue === 8) {
+                                    gl.uniformMatrix2x4fv(location, false, new Float32Array(value));
+                                } else if (lengthValue === 6) {
+                                    gl.uniformMatrix3x2fv(location, false, new Float32Array(value));
+                                } else if (lengthValue === 12) {
+                                    gl.uniformMatrix3x4fv(location, false, new Float32Array(value));
+                                } else if (lengthValue === 8) {
+                                    gl.uniformMatrix4x2fv(location, false, new Float32Array(value));
+                                } else if (lengthValue === 12) {
+                                    gl.uniformMatrix4x3fv(location, false, new Float32Array(value));
+                                } else {
+                                    console.warn(`Formato de matriz não suportado para ${name}: tamanho ${lengthValue}`);
+                                }
+                            }else {
+                                console.warn(`Formato de matriz não suportado para ${name}: tamanho ${length}`);
+                            }
+                        }
+                    }   
+    
+                    //Se "value" for um número
+                    if (typeof value === "number") {
+                        gl.uniform1f(location, value);
+    
+                    //Se "value" for um array 32bits
+                    } else if (value instanceof Int32Array) {
+                        gl.uniform1iv(location, value);
+                        
+                    //Se "value" for um array 32bits
+                    } else if (value instanceof Uint32Array) {
+                        gl.uniform1uiv(location, value);
+    
+                    // Caso constrário
+                    } else if (Array.isArray(value)) {
+                        if (value.length === 2) gl.uniform2fv(location, new Float32Array(value));
+                        else if (value.length === 3) gl.uniform3fv(location, new Float32Array(value));
+                        else if (value.length === 4) gl.uniform4fv(location, new Float32Array(value));
+                        else if (value.length === 9) gl.uniformMatrix3fv(location, false, new Float32Array(value));
+                        else if (value.length === 16) gl.uniformMatrix4fv(location, false, new Float32Array(value));
+                        else {
+                            console.warn(`Tipo de uniform desconhecido para ${name}`);
+                        }
                     }
                 }
             }
-        }
-          
-        
-        // Criando o programa WebGL
-        const program = createProgram(gl, vertexShader, fragmentShader);
-        gl.useProgram(program);
-
-        // Criação de um buffer para um quadrado da tela
-        const vertices = new Float32Array([
-            -1.0, -1.0,  // Inferior esquerdo
-            1.0, -1.0,  // Inferior direito
-            -1.0,  1.0,  // Superior esquerdo
-            1.0,  1.0   // Superior direito
-        ]);
-
-        const buffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-        // Obtém a localização do atributo "position"
-        const positionLocation = gl.getAttribLocation(program, "position");
-        gl.enableVertexAttribArray(positionLocation);
-        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-        // Envia os parâmetros para a função
-        setUniforms(gl, program, parametros);
-
-        const framebuffer = gl.createFramebuffer();
-        const texture = gl.createTexture();
-
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
-
-        // Definindo os parâmetros da textura
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-        // Limpa o framebuffer e desenha
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
-        // Executa o shader (não estamos desenhando, mas o shader será executado)
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-        // Lendo a saída da textura com flexibilidade para qualquer tamanho de output
-        const outputWidth = 1; // Defina com base no que seu shader espera
-        const outputHeight = 1; // Defina com base no que seu shader espera
-        const output = new Uint8Array(outputWidth * outputHeight * 4); // RGBA para cada pixel
-
-        gl.readPixels(0, 0, outputWidth, outputHeight, gl.RGBA, gl.UNSIGNED_BYTE, output);     
-
-        console.log("Resultado GLSL:", output);
-
-        return {
-            gl:  gl,
-            program: program,
-            framebuffer: framebuffer,
-            texture: texture,
-            canvas: canvas,
-            output: output
-        };
+              
+            
+            // Criando o programa WebGL
+            const program = createProgram(gl, vertexShader, fragmentShader);
+            gl.useProgram(program);
+    
+            // Criação de um buffer para um quadrado da tela
+            const vertices = new Float32Array([
+                -1.0, -1.0,  // Inferior esquerdo
+                1.0, -1.0,  // Inferior direito
+                -1.0,  1.0,  // Superior esquerdo
+                1.0,  1.0   // Superior direito
+            ]);
+    
+            const buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+    
+            // Obtém a localização do atributo "position"
+            const positionLocation = gl.getAttribLocation(program, "position");
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+    
+            // Envia os parâmetros para a função
+            setUniforms(gl, program, parametros);
+    
+            const framebuffer = gl.createFramebuffer();
+            const texture = gl.createTexture();
+    
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    
+            // Definindo os parâmetros da textura
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    
+            // Limpa o framebuffer e desenha
+            gl.clear(gl.COLOR_BUFFER_BIT);
+    
+            // Executa o shader (não estamos desenhando, mas o shader será executado)
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    
+            // Lendo a saída da textura com flexibilidade para qualquer tamanho de output
+            const outputWidth = 1; // Defina com base no que seu shader espera
+            const outputHeight = 1; // Defina com base no que seu shader espera
+            const output = new Uint8Array(outputWidth * outputHeight * 4); // RGBA para cada pixel
+    
+            await gl.finish(); //Espera a thread terminar
+    
+            gl.readPixels(0, 0, outputWidth, outputHeight, gl.RGBA, gl.UNSIGNED_BYTE, output);     
+    
+            console.log("Resultado GLSL:", output);
+    
+            referenciaThread.registrarFim();
+    
+            // Chama o callback de quando essa Thread termina
+            referenciaThread.callbacks['onTerminou'].bind(referenciaThread)( output, referenciaThread );
+    
+            referenciaThread.gl          = gl;
+            referenciaThread.program     = program;
+            referenciaThread.framebuffer = framebuffer;
+            referenciaThread.texture     = texture;
+            referenciaThread.canvas      = canvas;
+            referenciaThread.output      = output;
+    
+            resolve(referenciaThread);
+        });   
     }
 }

@@ -17,14 +17,20 @@ if( window.OptiComputation.sketch == undefined )
     window.OptiComputation.sketch = {};
 }
 
-window.OptiComputation.sketch.Thread = class {
+window.OptiComputation.sketch.GLThread = class {
     constructor(configThread){
         this.timestampCriado = new Date().getTime();
+
+        this.gl              = configThread.gl;
+        this.program         = configThread.program;
+        this.framebuffer     = configThread.framebuffer;
+        this.texture         = configThread.texture;
+        this.canvas          = configThread.canvas;
+        this.output          = configThread.output;
+
         this.terminou        = false;
         this.usoRAM          = 0;
-        this.worker          = configThread.worker;
         this.funcao          = configThread.funcao;
-        this.funcaoString    = configThread.funcaoString;
         this.parametros      = configThread.parametros;
         
         this.callbacks = {
@@ -33,7 +39,6 @@ window.OptiComputation.sketch.Thread = class {
         },
 
         this._internal       = {
-            funcaoStringAjustada: configThread._internal.funcaoThread,
             usoMemoriaComecou:    configThread._internal.usoMemoriaComecou || null,
             usoMemoriaTerminou:   configThread._internal.usoMemoriaTerminou || null,
             tempoFinalizada:      configThread._internal.tempoFinalizada || null
@@ -75,6 +80,5 @@ window.OptiComputation.sketch.Thread = class {
         this._internal.tempoFinalizada = tempoTerminou;
         this.duracaoTempo = Math.abs( tempoComecou - tempoTerminou );
     }
-
 
 }
